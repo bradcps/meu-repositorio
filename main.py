@@ -10,7 +10,7 @@ import logging
 from datetime import datetime
 import streamlit as st
 
-ASSISTANT_ID = "asst_VgdE1cNOaYsfSq3x47cWtYwO"
+ASSISTANT_ID = "asst_EOtEe4M07VFzKfXdiNjMw6QH"
 BASE_URL = "https://gw.petgenius.info"
 AUTH_HEADER = {"Authorization": "Basic d3NmYXJtaW5hX3plbmRlc2s6Vy1zMzEzMkAkemVuZA=="}
 
@@ -69,7 +69,7 @@ def list_pets(country, customer_id, lite, pet_id):
     return response.json()
     
 
-def add_pet(customer_id, typePet, petName, gender, country, breed = "", birthday =  "", body_condition =  "", daily_activities =  "" , gestation =  "", lactation =  "", life_stage  =  "", neutered =  "", pet_id =  "", size =  "", weight =  ""):
+def add_pet(customer_id, typePet, petName, gender, country, weight, breed = "", birthday =  "", body_condition =  "", daily_activities =  "" , gestation =  "", lactation =  "", life_stage  =  "", neutered =  "", pet_id =  "", size =  ""):
     payload = {
         "birthday": birthday,
         "type" : typePet,
@@ -204,7 +204,8 @@ def main(api_key):
             #     "No files found. Please upload at least one file to get started."
             # )
 
-
+    # chat_thread = client.beta.threads.create()
+    # st.session_state.thread_id = chat_thread.id
     # st.session_state.start_chat = True
     # the main interface ...
     st.title("Genius Nutritional Consultant")
@@ -265,12 +266,15 @@ def main(api_key):
         # Show a spinner while the assistant is thinking...
         with st.spinner("Wait... Generating response..."):
             while run.status != "completed":
-                # st.write("Status", run.status)
+                # check_messages(client, run) 
+                print(st.session_state.thread_id)
+                print(run.status)
                 time.sleep(1)
                 # st.write("Run ID:", run.id)
                 if run.status == "requires_action":
                     # Loop through each tool in the required action section
                     for tool in run.required_action.submit_tool_outputs.tool_calls:
+                        print(tool.function.name)
                         arguments = list(parse_json_and_list_values(tool.function.arguments))
                         if tool.function.name == "find_customer_by_email":
                             print(arguments)
@@ -326,34 +330,61 @@ def main(api_key):
                     thread_id=st.session_state.thread_id, run_id=run.id
                     
                 )
-                    
             # Retrieve messages added by the assistant
-            messages = client.beta.threads.messages.list(
+            check_messages(client, run)        
+            # # Retrieve messages added by the assistant
+            # messages = client.beta.threads.messages.list(
                 
-                thread_id=st.session_state.thread_id
-            )
-            # st.write("Messages", messages)
-            # Process and display assis messages
-            assistant_messages_for_run = [
-                message
-                for message in messages
-                if message.run_id == run.id and message.role == "assistant"
-            ]
+            #     thread_id=st.session_state.thread_id
+            # )
+            # # st.write("Messages", messages)
+            # # Process and display assis messages
+            # assistant_messages_for_run = [
+            #     message
+            #     for message in messages
+            #     if message.run_id == run.id and message.role == "assistant"
+            # ]
 
-            for message in assistant_messages_for_run:
-                # st.write("Message", message)
-                full_response = process_message_with_citations(message)
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": full_response}
-                )
-                with st.chat_message("assistant"):
-                    st.markdown(full_response, unsafe_allow_html=True)
+            # for message in assistant_messages_for_run:
+            #     # st.write("Message", message)
+            #     full_response = process_message_with_citations(message)
+            #     st.session_state.messages.append(
+            #         {"role": "assistant", "content": full_response}
+            #     )
+            #     with st.chat_message("assistant"):
+            #         st.markdown(full_response, unsafe_allow_html=True)
 
     else:
         # Promopt users to start chat
         st.write(
             "Say hello to the Genius Nutritional Consulant"
         )
+
+def check_messages(client, run):
+    messages = client.beta.threads.messages.list(
+                thread_id=st.session_state.thread_id
+            )
+    if not messages:
+        return
+            # st.write("Messages", messages)
+            # Process and display assistant messages, sorting by last added first
+    assistant_messages_for_run = [
+                message
+                for message in messages
+                if message.run_id == run.id and message.role == "assistant"
+            ]
+
+            # Sort messages in descending order before processing
+    assistant_messages_for_run.sort(key=lambda x: x.created_at, reverse=False)
+   
+    for message in assistant_messages_for_run:
+        print( message)
+        full_response = process_message_with_citations(message)
+        st.session_state.messages.append(
+                    {"role": "assistant", "content": full_response}
+                )
+        with st.chat_message("assistant"):
+            st.markdown(full_response, unsafe_allow_html=True)
 
 
 
